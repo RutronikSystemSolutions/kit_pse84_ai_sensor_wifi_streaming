@@ -42,7 +42,7 @@ This project uses the board's default configuration.
 
 5. Confirm that a green LED is flashing.
 
-6. The device starts a "Soft AP" with name MY_SOFT_AP. Password is "psco1234". Go to the Wifi configuration of your computer, and open a connection to this access point.
+6. The device starts a "Soft AP" with name MY_SOFT_AP. Password is "psoc1234". Go to the Wifi configuration of your computer, and open a connection to this access point.
 
 7. Start the GUI and start the streaming.
 

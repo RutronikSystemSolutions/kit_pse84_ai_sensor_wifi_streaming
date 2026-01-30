@@ -1,3 +1,56 @@
+/******************************************************************************
+* File Name:   main.c
+*
+* Description: This is the source code for the KIT PSE84 AI: OV7675 and BGT60TR13C data streaming over Wifi
+*             Application for ModusToolbox.
+*
+* Related Document: See README.md
+*
+* Created on: 2025-12-01
+* Company: Rutronik Elektronische Bauelemente GmbH
+* Address: Industriestraße 2, 75228 Ispringen, Germany
+* Author: RJ030
+*
+*******************************************************************************
+* Copyright 2020-2021, Cypress Semiconductor Corporation (an Infineon company) or
+* an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
+*
+* This software, including source code, documentation and related
+* materials ("Software") is owned by Cypress Semiconductor Corporation
+* or one of its affiliates ("Cypress") and is protected by and subject to
+* worldwide patent protection (United States and foreign),
+* United States copyright laws and international treaty provisions.
+* Therefore, you may use this Software only as provided in the license
+* agreement accompanying the software package from which you
+* obtained this Software ("EULA").
+* If no EULA applies, Cypress hereby grants you a personal, non-exclusive,
+* non-transferable license to copy, modify, and compile the Software
+* source code solely for use in connection with Cypress's
+* integrated circuit products.  Any reproduction, modification, translation,
+* compilation, or representation of this Software except as specified
+* above is prohibited without the express written permission of Cypress.
+*
+* Disclaimer: THIS SOFTWARE IS PROVIDED AS-IS, WITH NO WARRANTY OF ANY KIND,
+* EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, NONINFRINGEMENT, IMPLIED
+* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. Cypress
+* reserves the right to make changes to the Software without notice. Cypress
+* does not assume any liability arising out of the application or use of the
+* Software or any product or circuit described in the Software. Cypress does
+* not authorize its products for use in any products where a malfunction or
+* failure of the Cypress product may reasonably be expected to result in
+* significant property damage, injury or death ("High Risk Product"). By
+* including Cypress's product in a High Risk Product, the manufacturer
+* of such system or application assumes all risk of such use and in doing
+* so agrees to indemnify Cypress against all liability.
+*
+* Rutronik Elektronische Bauelemente GmbH Disclaimer: The evaluation board
+* including the software is for testing purposes only and,
+* because it has limited functions and limited resilience, is not suitable
+* for permanent use under real conditions. If the evaluation board is
+* nevertheless used under real conditions, this is done at one’s responsibility;
+* any liability of Rutronik is insofar excluded
+*******************************************************************************/
+
 #include "cybsp.h"
 #include "cy_pdl.h"
 #include "mtb_dvp_camera_ov7675.h"
@@ -6,8 +59,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-
-#include "usbd.h"
 
 #include "driver/radar.h"
 
@@ -20,11 +71,9 @@
 
 #include "ring_buffer.h"
 
-#undef USE_USB
-
 uint8_t* image_buffer_0;
 uint8_t* image_buffer_1;
-uint8_t* copy_buffer;
+
 uint16_t* radar_data;
 uint16_t radar_num_samples;
 
@@ -34,8 +83,8 @@ bool active_frame = false;
 
 #define COM_OVERHEAD	8
 
-#define BLINKY_LED_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 8)
-#define BLINKY_LED_TASK_PRIORITY            (configMAX_PRIORITIES - 1)
+#define DATA_COLLECTION_TASK_STACK_SIZE          (configMINIMAL_STACK_SIZE * 8)
+#define DATA_COLLECTION_TASK_PRIORITY            (configMAX_PRIORITIES - 1)
 
 #define TCP_SECURE_SERVER_TASK_STACK_SIZE  (1024U * 5U)
 #define TCP_SECURE_SERVER_TASK_PRIORITY    (1U)
@@ -45,126 +94,70 @@ SemaphoreHandle_t radar_data_mutex;
 
 TaskHandle_t network_task_handler;
 
+#define RING_BUFFER_SIZE 1000000
 
-static void my_task(void * arg)
+/**
+ * @brief This task is used to collect the data from the radar and from the OV7675
+ * It pushes the data into a ring-buffer, read by the socket server
+ */
+static void data_collection_task(void * arg)
 {
     CY_UNUSED_PARAMETER(arg);
 
-#ifdef USE_USB
-    uint8_t cmd = 0;
-	int send_data = 0;
-	uint8_t counterint = 0;
-#endif
-
+    uint8_t header_socket[6];
 	uint16_t radar_frame_counter = 0;
 
-	printf("MY TASK STARTED \r\n");
+	printf("data_collection_task started.\r\n");
 
-	if (ring_buffer_init(1000000) != 0)
+	// Initialize memory
+	if (ring_buffer_init(RING_BUFFER_SIZE) != 0)
 	{
 		printf("Cannot init ring buffer...\r\n");
 		vTaskSuspend(NULL);
 	}
 
-#ifdef USE_USB
-	usbd_t* usb_handle = usbd_create();
-#endif
-
 	// Wait until network task is ready
 	vTaskDelay(6000);
 
-	printf("MY TASK STARTED after usb\r\n");
-
-//	uint16_t radar_block_index = 0;
-
-	uint8_t header_socket[4];
-
+	// Initialize the radar sensor
 	if (radar_init() != 0)
 	{
 		printf("Cannot init radar...\r\n");
 		vTaskSuspend(NULL);
 	}
 
-	printf("Init done \r\n");
-
     for (;;)
 	{
-		// Something in USB read buffer?
-#ifdef USE_USB
-		if ( usbd_read(usb_handle, &cmd, 1) == 1)
-		{
-			printf("Received command: %d \r\n", cmd);
-			if (cmd == 49)
-			{
-				send_data = 1;
-				counterint = 0;
-			}
-			else send_data = 0;
-		}
-#endif
-
-		if ( (frame_ready) )
+    	// Something from the OV7675ß
+		if (frame_ready)
 		{
 			frame_ready = false;
 
-			// if (active_frame == 0)
+			uint8_t* copy_buffer = image_buffer_0;
+			if (active_frame != 0)
+				copy_buffer = image_buffer_1;
+
+			if(xSemaphoreTake(radar_data_mutex, 0) == pdPASS)
 			{
-				if (active_frame == 0) memcpy(&copy_buffer[COM_OVERHEAD], image_buffer_0, OV7675_MEMORY_BUFFER_SIZE);
-				else memcpy(&copy_buffer[COM_OVERHEAD], image_buffer_1, OV7675_MEMORY_BUFFER_SIZE);
-
-				if(xSemaphoreTake(radar_data_mutex, 0) == pdPASS)
+				Cy_GPIO_Write(CYBSP_USER_LED1_PORT, CYBSP_USER_LED1_PIN, 1);
+				// Enough size?
+				int size_with_header = 4 + (OV7675_MEMORY_BUFFER_SIZE);
+				if ((ring_buffer_get_free_memory() / 2) > size_with_header)
 				{
-					Cy_GPIO_Write(CYBSP_USER_LED1_PORT, CYBSP_USER_LED1_PIN, 1);
-					// Enough size?
-					int size_with_header = 4 + (OV7675_MEMORY_BUFFER_SIZE);
-					if ((ring_buffer_get_free_memory() / 2) > size_with_header)
-					{
-						header_socket[0] = 0x55;
-						header_socket[1] = 0x55;
-						header_socket[2] = 0x2; // type camera
-						header_socket[3] = 0x33; // CRC (todo)
-						ring_buffer_enqueue(header_socket, 4);
-						ring_buffer_enqueue(copy_buffer, OV7675_MEMORY_BUFFER_SIZE);
-						// xTaskNotifyGive(network_task_handler);
-					}
-//					else
-//					{
-//						printf("ring buffer camera\r\n");
-//					}
-					Cy_GPIO_Write(CYBSP_USER_LED1_PORT, CYBSP_USER_LED1_PIN, 0);
-					xSemaphoreGive(radar_data_mutex);
+					header_socket[0] = 0x55;
+					header_socket[1] = 0x55;
+					header_socket[2] = 0x2; // type camera
+					header_socket[3] = 0x33; // CRC (todo)
+					ring_buffer_enqueue(header_socket, 4);
+					ring_buffer_enqueue(copy_buffer, OV7675_MEMORY_BUFFER_SIZE);
 				}
-//				else
-//				{
-//					printf("oops camera sem\r\n");
-//				}
-
-				xTaskNotifyGive(network_task_handler);
-#ifdef USE_USB
-				// Send once per USB
-				if (send_data == 1)
-				{
-					// Add overhead
-					//copy_buffer[0] = counterint;
-					// counterint++;
-					copy_buffer[0] = 0x55;
-					copy_buffer[1] = 0x55;
-					copy_buffer[2] = counterint;
-					counterint++;
-					*((uint32_t*)&copy_buffer[3]) = OV7675_MEMORY_BUFFER_SIZE;
-					copy_buffer[7] = 0x33; // CRC to be computed of what is sent after
-
-					if (usbd_write(usb_handle, copy_buffer, OV7675_MEMORY_BUFFER_SIZE + COM_OVERHEAD) != 0)
-					{
-						printf("Failed to write\r\n");
-						send_data = 0;
-					}
-				}
-
-#endif
+				Cy_GPIO_Write(CYBSP_USER_LED1_PORT, CYBSP_USER_LED1_PIN, 0);
+				xSemaphoreGive(radar_data_mutex);
 			}
+			xTaskNotifyGive(network_task_handler);
 		}
 
+		// Something from the radar?
 		if (radar_is_data_available())
 		{
 			if (radar_read_data(radar_data, radar_num_samples) != 0)
@@ -188,42 +181,11 @@ static void my_task(void * arg)
 						ring_buffer_enqueue(header_socket, 6);
 						ring_buffer_enqueue((uint8_t*)radar_data, radar_num_samples * 2);
 					}
-//					else
-//					{
-//						printf("ring buffer radar\r\n");
-//					}
 					xSemaphoreGive(radar_data_mutex);
 					Cy_GPIO_Write(CYBSP_USER_LED1_PORT, CYBSP_USER_LED1_PIN, 0);
 				}
-//				else
-//				{
-//					printf("oops radar sem\r\n");
-//				}
-
 				xTaskNotifyGive(network_task_handler);
-
 				radar_frame_counter++;
-
-#ifdef USE_USB
-				// Send once per USB
-				if (send_data == 1)
-				{
-					copy_buffer[0] = 0x55;
-					copy_buffer[1] = 0x55;
-					copy_buffer[2] = counterint;
-					counterint++;
-					*((uint32_t*)&copy_buffer[3]) = 4096;
-					copy_buffer[7] = 0x33; // CRC to be computed of what is sent after
-
-					memcpy(&copy_buffer[COM_OVERHEAD], (uint8_t*)radar_data, radar_num_samples * sizeof(uint16_t));
-
-					if (usbd_write(usb_handle, copy_buffer, 4096 + COM_OVERHEAD) != 0)
-					{
-						printf("Failed to write\r\n");
-						send_data = 0;
-					}
-				}
-#endif
 			}
 		}
 
@@ -277,13 +239,6 @@ int main(void)
 		return 0;
 	}
 
-	copy_buffer = malloc(OV7675_MEMORY_BUFFER_SIZE + COM_OVERHEAD);
-	if (copy_buffer == NULL)
-	{
-		printf("Cannot allocate copy_buffer \r\n");
-		return 0;
-	}
-
 	radar_num_samples = radar_get_num_samples_per_frame();
 	radar_data = malloc(radar_num_samples * sizeof(uint16_t));
 	if (radar_data == NULL)
@@ -305,32 +260,31 @@ int main(void)
         CY_ASSERT(0);
     }
 
-    /* Create the FreeRTOS Task */
-    result = xTaskCreate(my_task, "usb task",
-                        BLINKY_LED_TASK_STACK_SIZE, NULL,
-                        BLINKY_LED_TASK_PRIORITY, NULL);
+    // Create the FreeRTOS Task used to collect the data
+    result = xTaskCreate(data_collection_task, "data_collection",
+    		DATA_COLLECTION_TASK_STACK_SIZE, NULL,
+			DATA_COLLECTION_TASK_PRIORITY, NULL);
 
     if( pdPASS != result )
     {
-    	printf("Cannot create usb task\r\n");
+    	printf("Cannot create data collection task\r\n");
     	return 0;
     }
 
-    /* Create the tasks */
+    // Create the TCP server task
 	result = xTaskCreate(tcp_secure_server_task, "Network Task",
 			TCP_SECURE_SERVER_TASK_STACK_SIZE, NULL,
 			TCP_SECURE_SERVER_TASK_PRIORITY, &network_task_handler);
 
 	if( pdPASS != result )
 	{
-		printf("Cannot create servder task\r\n");
+		printf("Cannot create server task\r\n");
 		return 0;
 	}
 
-	printf("Start scheduler\r\n");
-
-	/* Start the RTOS Scheduler */
+	// Start the RTOS Scheduler
 	vTaskStartScheduler();
 
-    printf("Something wrong\r\n");
+    printf("Something went wrong\r\n");
+    return -1;
 }

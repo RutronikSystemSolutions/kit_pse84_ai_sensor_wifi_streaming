@@ -525,9 +525,6 @@ void tcp_secure_server_task(void *arg)
     /* Variable to store number of bytes sent over TCP socket. */
     uint32_t bytes_sent = RESET_VAL;
 
-    /* Variable to receive LED ON/OFF command from the user button ISR. */
-    uint32_t led_state_cmd = LED_OFF_CMD;
-
     // Not connected
     client_connected = false;
     //Cy_GPIO_Write(CYBSP_LED_RGB_GREEN_PORT, CYBSP_LED_RGB_GREEN_PIN, 1);
@@ -989,69 +986,6 @@ cy_rslt_t tcp_disconnection_handler(cy_socket_t socket_handle, void *arg)
 *******************************************************************************/
 static void user_button_interrupt_handler(void)
 {
-//    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-//
-//    /* Variable to hold the LED ON/OFF command to be sent to the TCP client. */
-//    uint32_t led_state_cmd;
-//
-//    if (Cy_GPIO_GetInterruptStatus(CYBSP_USER_BTN1_PORT, CYBSP_USER_BTN1_PIN))
-//    {
-//        Cy_GPIO_ClearInterrupt(CYBSP_USER_BTN1_PORT, CYBSP_USER_BTN1_PIN);
-//        NVIC_ClearPendingIRQ(CYBSP_USER_BTN1_IRQ);
-//
-//        if ((!Cy_GPIO_Read(CYBSP_USER_BTN1_PORT, CYBSP_USER_BTN1_PIN)))
-//        {
-//            if (!button_debouncing)
-//            {
-//                /* Set the debouncing flag */
-//                button_debouncing = true;
-//
-//                /* Record the current timestamp */
-//                button_debounce_timestamp = (uint32_t) (xTaskGetTickCount()
-//                    * portTICK_PERIOD_MS);
-//            }
-//
-//            if (button_debouncing && (((xTaskGetTickCount() *
-//                    portTICK_PERIOD_MS)) - button_debounce_timestamp <=
-//                    DEBOUNCE_TIME_MS * portTICK_PERIOD_MS))
-//            {
-//                button_debouncing = false;
-//
-//                /* Set the command to be sent to TCP client. */
-//                if(CYBSP_LED_STATE_ON  == led_state)
-//                {
-//                    led_state_cmd = LED_OFF_CMD;
-//                }
-//                else
-//                {
-//                    led_state_cmd = LED_ON_CMD;
-//                }
-//
-//                /* Update the button pressed flag*/
-//                button_pressed = true;
-//
-//                /* Set the flag to send command to TCP client. */
-//                xTaskNotifyFromISR(server_task_handle, led_state_cmd,
-//                eSetValueWithoutOverwrite, &xHigherPriorityTaskWoken);
-//            }
-//        }
-//    }
-//
-//#ifdef CYBSP_USER_BTN2_ENABLED
-//    /* CYBSP_USER_BTN1 (SW2) and CYBSP_USER_BTN2 (SW4) share the same port in
-//     * the PSOC™ Edge E84 evaluation kit and hence they share the same NVIC IRQ
-//     * line. Since both the buttons are configured for falling edge interrupt in
-//     * the BSP, pressing any button will trigger the execution of this ISR. Therefore,
-//     * we must clear the interrupt flag of the user button (CYBSP_USER_BTN2) to avoid
-//     * issues in case if user presses BTN2 by mistake.
-//     */
-//    Cy_GPIO_ClearInterrupt(CYBSP_USER_BTN2_PORT, CYBSP_USER_BTN2_PIN);
-//    NVIC_ClearPendingIRQ(CYBSP_USER_BTN2_IRQ);
-//#endif
-//
-//    /* Force a context switch if xHigherPriorityTaskWoken is now set to
-//     * pdTRUE. */
-//    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 /* [] END OF FILE */

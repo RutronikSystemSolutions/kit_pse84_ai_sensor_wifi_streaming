@@ -55,7 +55,6 @@ VERBOSE=
 # added to the build
 #
 COMPONENTS+=FREERTOS RTOS_AWARE  
-COMPONENTS+=USBD_BASE
 COMPONENTS+=LWIP MBEDTLS
 
 # Like COMPONENTS, but disable optional code that was enabled by default.
