@@ -26,6 +26,10 @@ Using the generated log file and the provided Python script, you can "link" your
 
 - [PSOC&trade; Edge E84 AI Kit](https://www.infineon.com/KIT_PSE84_AI) (`KIT_PSE84_AI`)
 
+## Supported toolchains (make variable 'TOOLCHAIN')
+
+- GNU Arm&reg; Embedded Compiler v14.2.1 (`GCC_ARM`) - Default value of `TOOLCHAIN`
+
 ## Hardware setup
 
 This project uses the board's default configuration.
