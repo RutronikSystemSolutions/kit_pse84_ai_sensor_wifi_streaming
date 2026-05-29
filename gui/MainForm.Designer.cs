@@ -47,6 +47,8 @@
             selectPathButton = new Button();
             filePathTextBox = new TextBox();
             storeToFileLabel = new Label();
+            ipAddrTextBox = new TextBox();
+            stopButton = new Button();
             ((System.ComponentModel.ISupportInitialize)cameraPictureBox).BeginInit();
             ((System.ComponentModel.ISupportInitialize)mainSplitContainer).BeginInit();
             mainSplitContainer.Panel1.SuspendLayout();
@@ -62,7 +64,7 @@
             // 
             // openConnectionButton
             // 
-            openConnectionButton.Location = new Point(10, 9);
+            openConnectionButton.Location = new Point(118, 11);
             openConnectionButton.Margin = new Padding(3, 2, 3, 2);
             openConnectionButton.Name = "openConnectionButton";
             openConnectionButton.Size = new Size(152, 22);
@@ -95,7 +97,7 @@
             // 
             // connStateTextBox
             // 
-            connStateTextBox.Location = new Point(168, 10);
+            connStateTextBox.Location = new Point(357, 10);
             connStateTextBox.Name = "connStateTextBox";
             connStateTextBox.ReadOnly = true;
             connStateTextBox.Size = new Size(100, 23);
@@ -263,11 +265,32 @@
             storeToFileLabel.TabIndex = 0;
             storeToFileLabel.Text = "Store to file:";
             // 
+            // ipAddrTextBox
+            // 
+            ipAddrTextBox.Location = new Point(12, 10);
+            ipAddrTextBox.Name = "ipAddrTextBox";
+            ipAddrTextBox.Size = new Size(100, 23);
+            ipAddrTextBox.TabIndex = 8;
+            ipAddrTextBox.Text = "192.168.10.1";
+            // 
+            // stopButton
+            // 
+            stopButton.Enabled = false;
+            stopButton.Location = new Point(276, 11);
+            stopButton.Name = "stopButton";
+            stopButton.Size = new Size(75, 23);
+            stopButton.TabIndex = 9;
+            stopButton.Text = "Stop";
+            stopButton.UseVisualStyleBackColor = true;
+            stopButton.Click += stopButton_Click;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1074, 631);
+            Controls.Add(stopButton);
+            Controls.Add(ipAddrTextBox);
             Controls.Add(dataLoggerTabControl);
             Controls.Add(mainSplitContainer);
             Controls.Add(logsLabel);
@@ -314,5 +337,7 @@
         private Button stopLoggerButton;
         private TextBox storedTextBox;
         private Label storedLabel;
+        private TextBox ipAddrTextBox;
+        private Button stopButton;
     }
 }

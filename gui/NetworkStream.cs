@@ -47,6 +47,14 @@ namespace kit_pse84_ai_wifi_streaming
             CreateBackgroundWorker();
         }
 
+        public void Stop()
+        {
+            if (worker != null)
+            {
+                worker.CancelAsync();
+            }
+        }
+
         private void CreateBackgroundWorker()
         {
             if (worker != null)
@@ -54,9 +62,11 @@ namespace kit_pse84_ai_wifi_streaming
                 worker.CancelAsync();
             }
 
-            worker = new BackgroundWorker();
-            worker.WorkerReportsProgress = true;
-            worker.WorkerSupportsCancellation = true;
+            worker = new BackgroundWorker
+            {
+                WorkerReportsProgress = true,
+                WorkerSupportsCancellation = true
+            };
             worker.DoWork += Worker_DoWork;
             worker.ProgressChanged += Worker_ProgressChanged;
             worker.RunWorkerCompleted += Worker_RunWorkerCompleted;
@@ -75,8 +85,10 @@ namespace kit_pse84_ai_wifi_streaming
             }
 
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse(ipAddress), 50007);
-            Socket myclient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            myclient.ReceiveTimeout = 5000;
+            Socket myclient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+                ReceiveTimeout = 5000
+            };
 
             try
             {
@@ -89,6 +101,14 @@ namespace kit_pse84_ai_wifi_streaming
                     byte[] header = new byte[4];
                     int toRead = 4;
                     int readIndex = 0;
+
+                    if (worker.CancellationPending)
+                    {
+                        worker.ReportProgress(WORKER_LOG, "Close connection, as requested.");
+                        myclient.Shutdown(SocketShutdown.Both);
+                        myclient.Close();
+                        break;
+                    }
 
                     for (; ; )
                     {
@@ -155,6 +175,7 @@ namespace kit_pse84_ai_wifi_streaming
             catch (Exception ex)
             {
                 worker.ReportProgress(WORKER_LOG, ex.Message);
+                return;
             }
         }
 
@@ -192,6 +213,13 @@ namespace kit_pse84_ai_wifi_streaming
         private void Worker_RunWorkerCompleted(object? sender, RunWorkerCompletedEventArgs e)
         {
             OnNewConnectionState?.Invoke(this, ConnectionState.Iddle);
+            if (worker != null)
+            {
+                worker.DoWork -= Worker_DoWork;
+                worker.ProgressChanged -= Worker_ProgressChanged;
+                worker.RunWorkerCompleted -= Worker_RunWorkerCompleted;
+                worker = null;
+            }
         }
     }
 }

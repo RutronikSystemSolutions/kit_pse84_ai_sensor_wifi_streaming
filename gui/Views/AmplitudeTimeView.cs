@@ -86,6 +86,14 @@ namespace kit_pse84_ai_wifi_streaming.Views
             plotView.InvalidatePlot(true);
         }
 
+        public void Clear()
+        {
+            for(int i = 0; i < lines.Count; ++i)
+            {
+                lines[i].Points.Clear();
+            }
+        }
+
         
         public void updateData(ushort frameIndex, double[] amplitudes)
         {

@@ -83,15 +83,21 @@ namespace kit_pse84_ai_wifi_streaming
                 case NetworkStream.ConnectionState.Connected:
                     AddLog("Connected. Start receiving data.");
                     openConnectionButton.Enabled = false;
+                    ipAddrTextBox.Enabled = false;
                     connStateTextBox.BackColor = Color.LightGreen;
+                    stopButton.Enabled = true;
                     break;
                 case NetworkStream.ConnectionState.Iddle:
                     openConnectionButton.Enabled = true;
+                    ipAddrTextBox.Enabled = true;
                     connStateTextBox.BackColor = Color.Coral;
+                    stopButton.Enabled = false;
                     break;
                 case NetworkStream.ConnectionState.Starting:
                     connStateTextBox.BackColor = Color.LightYellow;
                     openConnectionButton.Enabled = false;
+                    ipAddrTextBox.Enabled = false;
+                    stopButton.Enabled = false;
                     break;
             }
             connStateTextBox.Text = state.ToString();
@@ -154,16 +160,30 @@ namespace kit_pse84_ai_wifi_streaming
 
         private void openConnectionButton_Click(object sender, EventArgs e)
         {
-            AddLog("Try to open connection with 192.168.10.1");
-            stream.SetAddress("192.168.10.1");
+            string selectedIp = ipAddrTextBox.Text;
+
+            // Clear chart
+            amplitudeTimeView.Clear();
+
+            if (!IPAddress.TryParse(selectedIp, out _))
+            {
+                MessageBox.Show("Invalid IP address format. Please enter a valid IP address.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            AddLog(string.Format("Try to open connection with {0}", selectedIp));
+            stream.SetAddress(selectedIp);
             openConnectionButton.Enabled = false;
+            ipAddrTextBox.Enabled = false;
         }
 
         private void selectPathButton_Click(object sender, EventArgs e)
         {
-            SaveFileDialog sfd = new SaveFileDialog();
-            sfd.Filter = "Binary Log file|*.log";
-            sfd.Title = "Save stream to file";
+            SaveFileDialog sfd = new SaveFileDialog
+            {
+                Filter = "Binary Log file|*.log",
+                Title = "Save stream to file"
+            };
             if (sfd.ShowDialog() != DialogResult.OK) return;
 
             filePathTextBox.Text = sfd.FileName;
@@ -180,6 +200,11 @@ namespace kit_pse84_ai_wifi_streaming
         {
             dataLogger.Stop();
             stopLoggerButton.Enabled = false;
+        }
+
+        private void stopButton_Click(object sender, EventArgs e)
+        {
+            stream.Stop();
         }
     }
 }
